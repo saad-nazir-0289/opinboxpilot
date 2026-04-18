@@ -18,6 +18,10 @@ const defaultProfile = {
 }
 
 export const useAppStore = create((set, get) => ({
+  // Auth state
+  token: localStorage.getItem('token') || null,
+  user: null,
+
   // Step tracking
   currentStep: 'input', // 'input' | 'processing' | 'results'
 
@@ -31,6 +35,69 @@ export const useAppStore = create((set, get) => ({
   isProcessing: false,
   error: null,
   usage: null,
+
+  // Auth Actions
+  setToken: (token) => {
+    if (token) {
+      localStorage.setItem('token', token);
+    } else {
+      localStorage.removeItem('token');
+    }
+    set({ token });
+  },
+  setUser: (user) => set({ user }),
+  logout: () => {
+    localStorage.removeItem('token');
+    set({ token: null, user: null, studentProfile: defaultProfile });
+  },
+
+  fetchProfile: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const profileData = data.profile || {};
+        // make sure arrays stay arrays
+        if (!profileData.preferredTypes) profileData.preferredTypes = [];
+        set({ studentProfile: { ...defaultProfile, ...profileData } });
+      }
+    } catch (err) {
+      console.error("Failed to fetch profile", err);
+    }
+  },
+
+  saveProfileToDB: async () => {
+    const { token, studentProfile } = get();
+    if (!token) return false;
+    try {
+      set({ isProcessing: true, error: null });
+      const res = await fetch('http://localhost:5000/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(studentProfile)
+      });
+      if (res.ok) {
+        set({ isProcessing: false });
+        return true;
+      } else {
+        const data = await res.json();
+        set({ error: data.error || 'Failed to save profile', isProcessing: false });
+        return false;
+      }
+    } catch (err) {
+      set({ error: 'Network error saving profile', isProcessing: false });
+      return false;
+    }
+  },
 
   // Actions
   setRawEmails: (rawEmails) => set({ rawEmails }),
@@ -73,7 +140,7 @@ export const useAppStore = create((set, get) => ({
 
       if (limitedDemo) {
         // Show an alert explicitly mapping to the edge cases
-        alert("Processing first 10 emails for demo. The rest have been truncated to prevent overflow/API issues.")
+        alert("Processing first 100 emails. The rest have been truncated to prevent overflow/API issues.")
       }
 
       const scored = scoreAndRank(raw, studentProfile)

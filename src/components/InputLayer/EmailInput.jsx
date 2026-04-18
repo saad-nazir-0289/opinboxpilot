@@ -49,7 +49,7 @@ export default function EmailInput() {
   const isValid = emailCount >= 1
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="email-input-shell panel-animate" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
@@ -65,7 +65,7 @@ export default function EmailInput() {
             01 / Email Input
           </h2>
           <p style={{ fontSize: '15px', fontWeight: 300, color: 'var(--text)', marginTop: '4px' }}>
-            Paste your opportunity emails below
+            Paste your emails below
           </p>
         </div>
 
@@ -92,7 +92,7 @@ export default function EmailInput() {
             color: emailCount > 0 ? 'var(--teal)' : 'var(--text3)',
             fontWeight: 500,
           }}>
-            {emailCount} / 15 emails
+            {emailCount} / 100 emails
           </span>
         </div>
       </div>
@@ -199,6 +199,7 @@ export default function EmailInput() {
           </span>
           {rawEmails.length > 0 && (
             <button
+              className="btn"
               onClick={() => setRawEmails('')}
               style={{
                 fontSize: '11px',

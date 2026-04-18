@@ -41,6 +41,119 @@ body {
   overflow-x: hidden;
 }
 
+#root { min-height: 100vh; }
+
+.glass-card {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.28);
+}
+
+.panel-animate {
+  animation: fadeUp 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.btn {
+  transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(16, 16, 24, 0.35);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.dashboard-shell {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(124, 107, 255, 0.14), transparent 40%),
+    radial-gradient(circle at 90% 10%, rgba(45, 212, 191, 0.08), transparent 45%),
+    var(--bg);
+}
+
+.dashboard-nav {
+  position: sticky;
+}
+
+.dashboard-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.dashboard-main {
+  padding: 28px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+}
+
+.dashboard-actions {
+  flex-wrap: wrap;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(124, 107, 255, 0.18), transparent 40%),
+    radial-gradient(circle at 90% 0%, rgba(167, 139, 250, 0.12), transparent 35%),
+    var(--bg);
+}
+
+.login-card {
+  width: min(440px, 100%);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+}
+
+elevenlabs-convai {
+  --elevenlabs-convai-widget-height: 620px;
+  --elevenlabs-convai-widget-width: min(380px, 96vw);
+  z-index: 500;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-content {
+    padding: 0 18px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-nav {
+    padding: 0 14px !important;
+    height: auto !important;
+    min-height: 56px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-main {
+    padding: 18px;
+  }
+
+  .dashboard-actions {
+    justify-content: stretch !important;
+  }
+
+  .dashboard-actions .btn {
+    flex: 1 1 100%;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

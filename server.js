@@ -4,10 +4,40 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import { OpenAI } from 'openai';
+import mongoose from 'mongoose';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 import { autoSplitEmails } from './src/lib/emailParser.js';
+import Student from './src/models/Student.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
+
+const mongoUri = (process.env.MONGODB_URI || process.env.MONGO_URI || '').trim();
+
+async function connectToDatabase() {
+  if (!mongoUri) {
+    throw new Error('Missing MongoDB URI. Set MONGODB_URI in your .env file.');
+  }
+
+  await mongoose.connect(mongoUri, {
+    serverSelectionTimeoutMS: 15000,
+  });
+  console.log('Connected to MongoDB');
+}
+
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err.message);
+});
+
+const app = express();
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
 
 /** Real OpenAI keys are long; ignore placeholders and accidental whitespace. */
 function isConfiguredOpenAIKey(value) {
@@ -19,9 +49,148 @@ function isConfiguredOpenAIKey(value) {
   return true;
 }
 
-const app = express();
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+// Passport Google Strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      let student = await Student.findOne({ googleId: profile.id });
+      if (!student) {
+        // Also check if email exists
+        const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
+        if (email) {
+          student = await Student.findOne({ email });
+          if (student) {
+            // Unify account
+            student.googleId = profile.id;
+            await student.save();
+            return done(null, student);
+          }
+        }
+        
+        // Create new user
+        student = new Student({
+          googleId: profile.id,
+          name: profile.displayName || '',
+          email: email || '',
+        });
+        await student.save();
+      }
+      return done(null, student);
+    } catch (err) {
+      return done(err, null);
+    }
+  }
+));
+
+app.use(passport.initialize());
+
+// Middleware to verify JWT
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Forbidden' });
+    req.user = user;
+    next();
+  });
+};
+
+function generateToken(student) {
+  return jwt.sign({ id: student._id, email: student.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+}
+
+// ── Auth Routes ──
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+
+    const existing = await Student.findOne({ email });
+    if (existing) return res.status(400).json({ error: "Email already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newStudent = new Student({ email, password: hashedPassword });
+    await newStudent.save();
+
+    const token = generateToken(newStudent);
+    res.json({ token, student: newStudent });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({ error: "Registration failed" });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const student = await Student.findOne({ email });
+    if (!student || !student.password) return res.status(400).json({ error: "Invalid credentials" });
+
+    const match = await bcrypt.compare(password, student.password);
+    if (!match) return res.status(400).json({ error: "Invalid credentials" });
+
+    const token = generateToken(student);
+    res.json({ token, student });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+// Google OAuth Redirect
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false })
+);
+
+// Google OAuth Callback
+app.get('/auth/google/callback',
+  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+  (req, res) => {
+    // Generate JWT token and redirect to frontend with token in URL parameter
+    const token = generateToken(req.user);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/login?token=${token}`);
+  }
+);
+
+// ── Profile Routes ──
+
+app.get('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const student = await Student.findById(req.user.id).select('-password');
+    if (!student) return res.status(404).json({ error: "Student not found" });
+    res.json({ profile: student });
+  } catch (error) {
+    res.status(500).json({ error: "Could not fetch profile" });
+  }
+});
+
+app.put('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    // Exclude password and googleId from updates
+    const updates = { ...req.body };
+    delete updates.password;
+    delete updates.googleId;
+    delete updates.email;
+
+    const student = await Student.findByIdAndUpdate(
+      req.user.id,
+      { $set: updates },
+      { new: true }
+    ).select('-password');
+    res.json({ profile: student });
+  } catch (error) {
+    res.status(500).json({ error: "Could not update profile" });
+  }
+});
+
 
 const SYSTEM_PROMPT = `You are an expert email analyst for university students in Pakistan.
 Your job is to analyze a batch of emails and extract structured opportunity data.
@@ -104,14 +273,8 @@ function generateDemoData() {
   };
 }
 
-
-
 app.get('/', (req, res) => {
   res.send('Backend server is live and running. Use the frontend interface to perform analysis.');
-});
-
-app.get('/api/analyze', (req, res) => {
-  res.send('The /api/analyze endpoint requires a POST request. Please trigger the analysis from the React frontend.');
 });
 
 app.post('/api/analyze', async (req, res) => {
@@ -139,9 +302,9 @@ app.post('/api/analyze', async (req, res) => {
 
     // Limiting overflow
     let limited = false;
-    if (emails.length > 10) {
+    if (emails.length > 100) {
       limited = true;
-      emails = emails.slice(0, 10);
+      emails = emails.slice(0, 100);
     }
 
     const emailBlock = emails
@@ -223,8 +386,19 @@ Analyze all ${emails.length} emails and return the strict JSON.`;
   }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-  const keyOk = isConfiguredOpenAIKey(process.env.OPENAI_API_KEY?.trim());
-  console.log(`Backend on http://localhost:${PORT} (OPENAI_API_KEY: ${keyOk ? 'ok' : 'MISSING — real analysis will fail until set'})`);
-});
+const PORT = process.env.PORT || 5000;
+
+async function startServer() {
+  try {
+    await connectToDatabase();
+    app.listen(PORT, () => {
+      const keyOk = isConfiguredOpenAIKey(process.env.OPENAI_API_KEY?.trim());
+      console.log(`Backend on http://localhost:${PORT} (OPENAI_API_KEY: ${keyOk ? 'ok' : 'MISSING — real analysis will fail until set'})`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err.message);
+    process.exit(1);
+  }
+}
+
+startServer();

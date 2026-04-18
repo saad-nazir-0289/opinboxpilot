@@ -5,12 +5,32 @@
  */
 export function autoSplitEmails(rawText) {
   if (!rawText) return [];
+
+  // Heuristic 1: If it contains "Email X of Y" or similar, use that to split
+  if (/Email\s+\d+\s*(?:of\s*\d+)?/i.test(rawText)) {
+      const parts = rawText
+          // Insert a split marker before each "Email X"
+          .replace(/(Email\s+\d+\s*(?:of\s*\d+)?)/gi, '\n===EMAIL_DELIM===\n$1')
+          .split('===EMAIL_DELIM===')
+          .map(e => e.trim())
+          .filter(e => e.length > 10);
+          
+      // Check if the split actually yielded multiple parts (e.g. at least 2)
+      if (parts.length > 1) return parts;
+  }
+  
+  // Heuristic 2: User specifically used --- separators
+  if (rawText.includes('\n---\n')) {
+      const parts = rawText.split(/(?:\n---\n)/).map(e => e.trim()).filter(e => e.length > 10);
+      if (parts.length > 1) return parts;
+  }
+
+  // Heuristic 3: Line-by-line standard header detection (From:, Subject:, Date:)
   const lines = rawText.split('\n');
   const emails = [];
   let currentEmail = [];
   let inHeaderBlock = false;
 
-  // The user's regex requirement: check if line starts with From:, Subject:, or Date:
   const isHeader = (line) => /^(From|Subject|Date):\s/i.test(line.trim());
 
   for (let i = 0; i < lines.length; i++) {
@@ -18,8 +38,6 @@ export function autoSplitEmails(rawText) {
     const isLineHeader = isHeader(line);
 
     if (isLineHeader) {
-      // If we see a header, but we were NOT in a header block (meaning we were in the body),
-      // we start a new email block.
       if (!inHeaderBlock && currentEmail.filter(l => l.trim().length > 0).length > 0) {
         emails.push(currentEmail.join('\n').trim());
         currentEmail = [];
@@ -38,15 +56,19 @@ export function autoSplitEmails(rawText) {
     emails.push(currentEmail.join('\n').trim());
   }
 
-  // Filter out any completely empty artifacts
   let validEmails = emails.filter(e => e.trim().length > 10);
   
-  // Backwards compatibility fallback if auto-detect found mostly nothing
-  if (validEmails.length <= 1 && rawText.includes('\n---\n')) {
-    const fallback = rawText.split(/(?:\n---\n)/).filter(e => e.trim().length > 10);
-    if (fallback.length > 1) {
-      return fallback;
-    }
+  // Heuristic 4: If STILL only 1 email, but we see multiple "Subject: " in the text as glued text
+  if (validEmails.length <= 1) {
+      const subjectMatches = rawText.match(/Subject:\s/gi);
+      if (subjectMatches && subjectMatches.length > 1) {
+          const parts = rawText
+              .replace(/(Subject:\s)/gi, '\n===EMAIL_DELIM===\n$1')
+              .split('===EMAIL_DELIM===')
+              .map(e => e.trim())
+              .filter(e => e.length > 10);
+          if (parts.length > 1) return parts;
+      }
   }
 
   return validEmails;

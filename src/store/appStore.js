@@ -21,6 +21,7 @@ export const useAppStore = create((set, get) => ({
   // Auth state
   token: localStorage.getItem('token') || null,
   user: null,
+  isGoogleUser: false,
 
   // Step tracking
   currentStep: 'input', // 'input' | 'processing' | 'results'
@@ -48,7 +49,7 @@ export const useAppStore = create((set, get) => ({
   setUser: (user) => set({ user }),
   logout: () => {
     localStorage.removeItem('token');
-    set({ token: null, user: null, studentProfile: defaultProfile });
+    set({ token: null, user: null, studentProfile: defaultProfile, isGoogleUser: false });
   },
 
   fetchProfile: async () => {
@@ -63,12 +64,40 @@ export const useAppStore = create((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         const profileData = data.profile || {};
-        // make sure arrays stay arrays
         if (!profileData.preferredTypes) profileData.preferredTypes = [];
-        set({ studentProfile: { ...defaultProfile, ...profileData } });
+        set({ studentProfile: { ...defaultProfile, ...profileData }, isGoogleUser: data.isGoogleUser || false });
       }
     } catch (err) {
       console.error("Failed to fetch profile", err);
+    }
+  },
+
+  fetchGmail: async () => {
+    const { token, rawEmails } = get();
+    if (!token) return false;
+    try {
+      set({ isProcessing: true, error: null });
+      const res = await fetch('http://localhost:5000/api/gmail/fetch', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.text) {
+           const existing = rawEmails.trim() ? rawEmails + '\n\n' : '';
+           set({ rawEmails: existing + data.text, isProcessing: false });
+        } else {
+           set({ isProcessing: false });
+        }
+        return true;
+      } else {
+        set({ error: data.error || 'Failed to fetch Gmail data', isProcessing: false });
+        return false;
+      }
+    } catch (err) {
+      set({ error: 'Network error fetching Gmail', isProcessing: false });
+      return false;
     }
   },
 

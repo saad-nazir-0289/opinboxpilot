@@ -9,28 +9,17 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { google } from 'googleapis';
 import { autoSplitEmails } from './src/lib/emailParser.js';
 import Student from './src/models/Student.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-const mongoUri = (process.env.MONGODB_URI || process.env.MONGO_URI || '').trim();
-
-async function connectToDatabase() {
-  if (!mongoUri) {
-    throw new Error('Missing MongoDB URI. Set MONGODB_URI in your .env file.');
-  }
-
-  await mongoose.connect(mongoUri, {
-    serverSelectionTimeoutMS: 15000,
-  });
-  console.log('Connected to MongoDB');
-}
-
-mongoose.connection.on('error', (err) => {
-  console.error('MongoDB connection error:', err.message);
-});
+// Setup Mongoose
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 const app = express();
 app.use(cors({
@@ -66,6 +55,8 @@ passport.use(new GoogleStrategy({
           if (student) {
             // Unify account
             student.googleId = profile.id;
+            student.googleAccessToken = accessToken;
+            if (refreshToken) student.googleRefreshToken = refreshToken;
             await student.save();
             return done(null, student);
           }
@@ -76,8 +67,15 @@ passport.use(new GoogleStrategy({
           googleId: profile.id,
           name: profile.displayName || '',
           email: email || '',
+          googleAccessToken: accessToken,
+          googleRefreshToken: refreshToken
         });
         await student.save();
+      } else {
+         // Update tokens for existing user
+         student.googleAccessToken = accessToken;
+         if (refreshToken) student.googleRefreshToken = refreshToken;
+         await student.save();
       }
       return done(null, student);
     } catch (err) {
@@ -122,7 +120,6 @@ app.post('/api/auth/register', async (req, res) => {
     const token = generateToken(newStudent);
     res.json({ token, student: newStudent });
   } catch (error) {
-    console.error('Register error:', error);
     res.status(500).json({ error: "Registration failed" });
   }
 });
@@ -139,34 +136,40 @@ app.post('/api/auth/login', async (req, res) => {
     const token = generateToken(student);
     res.json({ token, student });
   } catch (error) {
-    console.error('Login error:', error);
     res.status(500).json({ error: "Login failed" });
   }
 });
 
 // Google OAuth Redirect
 app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'], session: false })
+  passport.authenticate('google', { 
+    scope: ['profile', 'email', 'https://www.googleapis.com/auth/gmail.readonly'],
+    accessType: 'offline',
+    prompt: 'consent'
+  })
 );
 
 // Google OAuth Callback
 app.get('/auth/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: '/login' }),
   (req, res) => {
-    // Generate JWT token and redirect to frontend with token in URL parameter
     const token = generateToken(req.user);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.redirect(`${frontendUrl}/login?token=${token}`);
   }
 );
 
-// ── Profile Routes ──
+// ── Profile and Gmail API Routes ──
 
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
     const student = await Student.findById(req.user.id).select('-password');
     if (!student) return res.status(404).json({ error: "Student not found" });
-    res.json({ profile: student });
+    
+    // Pass indicator if user is a Google user and has token
+    const isGoogleUser = !!student.googleAccessToken;
+    
+    res.json({ profile: student, isGoogleUser });
   } catch (error) {
     res.status(500).json({ error: "Could not fetch profile" });
   }
@@ -174,10 +177,11 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 
 app.put('/api/profile', authenticateToken, async (req, res) => {
   try {
-    // Exclude password and googleId from updates
     const updates = { ...req.body };
     delete updates.password;
     delete updates.googleId;
+    delete updates.googleAccessToken;
+    delete updates.googleRefreshToken;
     delete updates.email;
 
     const student = await Student.findByIdAndUpdate(
@@ -188,6 +192,73 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
     res.json({ profile: student });
   } catch (error) {
     res.status(500).json({ error: "Could not update profile" });
+  }
+});
+
+app.get('/api/gmail/fetch', authenticateToken, async (req, res) => {
+  try {
+    const student = await Student.findById(req.user.id);
+    if (!student || !student.googleAccessToken) {
+      return res.status(400).json({ error: "Gmail connection not available. Please log out and sign in with Google." });
+    }
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+
+    oauth2Client.setCredentials({
+      access_token: student.googleAccessToken,
+      refresh_token: student.googleRefreshToken
+    });
+    
+    // In case refresh is needed, googleapis does it automatically if refresh_token is provided.
+
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    
+    // Fetch recent ~15 messages
+    const listRes = await gmail.users.messages.list({
+      userId: 'me',
+      maxResults: 15,
+      // Optional: filtering out some generic noise
+      q: 'newer_than:30d' 
+    });
+
+    const messages = listRes.data.messages || [];
+    if (messages.length === 0) {
+      return res.json({ emails: [] });
+    }
+
+    const emailStrings = [];
+    for (const msg of messages) {
+      try {
+        const msgData = await gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'metadata' });
+        const headers = msgData.data.payload.headers;
+
+        const subject = headers.find(h => h.name.toLowerCase() === 'subject')?.value || 'No Subject';
+        const from = headers.find(h => h.name.toLowerCase() === 'from')?.value || 'Unknown';
+        const date = headers.find(h => h.name.toLowerCase() === 'date')?.value || '';
+        
+        let snippet = msgData.data.snippet || '';
+        // Unescape some html entities from snippet
+        snippet = snippet.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+
+        const emailText = `From: ${from}\nDate: ${date}\nSubject: ${subject}\n\n${snippet}\n---\n`;
+        emailStrings.push(emailText);
+      } catch (err) {
+        // Just skip an email if it fails to parse
+        continue;
+      }
+    }
+
+    res.json({ text: emailStrings.join('\n') });
+
+  } catch (err) {
+    if (err.message && err.message.includes('invalid_grant')) {
+      return res.status(401).json({ error: "Google session expired. Please log out and sign in with Google again." });
+    }
+    console.error('Gmail API error:', err);
+    res.status(500).json({ error: "Failed to fetch from Gmail. Are you sure you approved permissions?" });
   }
 });
 
@@ -302,9 +373,9 @@ app.post('/api/analyze', async (req, res) => {
 
     // Limiting overflow
     let limited = false;
-    if (emails.length > 100) {
+    if (emails.length > 10) {
       limited = true;
-      emails = emails.slice(0, 100);
+      emails = emails.slice(0, 10);
     }
 
     const emailBlock = emails
@@ -387,18 +458,7 @@ Analyze all ${emails.length} emails and return the strict JSON.`;
 });
 
 const PORT = process.env.PORT || 5000;
-
-async function startServer() {
-  try {
-    await connectToDatabase();
-    app.listen(PORT, () => {
-      const keyOk = isConfiguredOpenAIKey(process.env.OPENAI_API_KEY?.trim());
-      console.log(`Backend on http://localhost:${PORT} (OPENAI_API_KEY: ${keyOk ? 'ok' : 'MISSING — real analysis will fail until set'})`);
-    });
-  } catch (err) {
-    console.error('Failed to start server:', err.message);
-    process.exit(1);
-  }
-}
-
-startServer();
+app.listen(PORT, () => {
+  const keyOk = isConfiguredOpenAIKey(process.env.OPENAI_API_KEY?.trim());
+  console.log(`Backend on http://localhost:${PORT} (OPENAI_API_KEY: ${keyOk ? 'ok' : 'MISSING — real analysis will fail until set'})`);
+});

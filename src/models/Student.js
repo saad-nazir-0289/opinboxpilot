@@ -4,6 +4,8 @@ const studentSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String }, // optional because OAuth users might not have a password
   googleId: { type: String },
+  googleAccessToken: { type: String },
+  googleRefreshToken: { type: String },
   name: { type: String, default: '' },
   degree: { type: String, default: '' },
   program: { type: String, default: '' },

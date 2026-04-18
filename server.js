@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import { OpenAI } from 'openai';
+import { autoSplitEmails } from './src/lib/emailParser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -103,15 +104,7 @@ function generateDemoData() {
   };
 }
 
-function splitEmails(rawText) {
-  let emails = rawText.split(/(?:\n---\n|\n\nFrom:)/);
-  if (emails.length <= 1 && rawText.length > 50) {
-    emails = [rawText]; // fallback -> treat whole text as 1 email
-  }
-  return emails
-    .map((e) => e.trim())
-    .filter((e) => e.length > 20)
-}
+
 
 app.get('/', (req, res) => {
   res.send('Backend server is live and running. Use the frontend interface to perform analysis.');
@@ -138,7 +131,7 @@ app.post('/api/analyze', async (req, res) => {
       });
     }
 
-    let emails = splitEmails(rawEmails);
+    let emails = autoSplitEmails(rawEmails);
 
     if (emails.length === 0) {
       return res.status(400).json({ error: 'No emails found. Please paste emails to continue.' });

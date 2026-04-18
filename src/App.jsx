@@ -2,13 +2,12 @@ import { useAppStore } from './store/appStore'
 import EmailInput from './components/InputLayer/EmailInput'
 import StudentProfile from './components/InputLayer/StudentProfile'
 import ResultsDashboard from './components/ResultsLayer/ResultsDashboard'
+import { getEmailCount } from './lib/emailParser'
 
 export default function App() {
   const { rawEmails, studentProfile: p, isProcessing, currentStep, analyse, reset, error } = useAppStore()
 
-  const emailCount = rawEmails
-    .split(/\n---\n/)
-    .filter((e) => e.trim().length > 0).length
+  const emailCount = getEmailCount(rawEmails);
 
   const canAnalyze = emailCount >= 1 && p.degree && p.program && p.semester && p.cgpa
 

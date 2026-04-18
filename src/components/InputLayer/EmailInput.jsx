@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useAppStore } from '../../store/appStore'
+import { getEmailCount } from '../../lib/emailParser'
 
 const PLACEHOLDER = `From: HEC Scholarships <scholarships@hec.gov.pk>
 Subject: HEC Need-Based Scholarship 2026 — Applications Open
@@ -43,18 +44,7 @@ export default function EmailInput() {
   const { rawEmails, setRawEmails } = useAppStore()
   const [focused, setFocused] = useState(false)
 
-  const emailCount = rawEmails
-    .split(/\n---\n/)
-    .filter((e) => e.trim().length > 0).length
-
-  const handlePaste = useCallback(
-    (e) => {
-      const text = e.clipboardData.getData('text')
-      setRawEmails(rawEmails ? rawEmails + '\n---\n' + text : text)
-      e.preventDefault()
-    },
-    [rawEmails, setRawEmails]
-  )
+  const emailCount = getEmailCount(rawEmails);
 
   const isValid = emailCount >= 1
 
@@ -172,7 +162,6 @@ export default function EmailInput() {
         <textarea
           value={rawEmails}
           onChange={(e) => setRawEmails(e.target.value)}
-          onPaste={handlePaste}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder={PLACEHOLDER}
@@ -206,17 +195,7 @@ export default function EmailInput() {
           justifyContent: 'space-between',
         }}>
           <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text3)' }}>
-            Separate multiple emails with{' '}
-            <span style={{
-              padding: '1px 6px',
-              borderRadius: '4px',
-              background: 'var(--bg3)',
-              border: '1px solid var(--border)',
-              color: 'var(--text2)',
-            }}>
-              ---
-            </span>
-            {' '}on its own line
+            Auto-detects emails by <span style={{ color: 'var(--text2)' }}>From:</span>, <span style={{ color: 'var(--text2)' }}>Subject:</span>, or <span style={{ color: 'var(--text2)' }}>Date:</span> headers.
           </span>
           {rawEmails.length > 0 && (
             <button

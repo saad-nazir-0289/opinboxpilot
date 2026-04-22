@@ -1,0 +1,2 @@
+export const MAX_ANALYSIS_EMAILS = 100;
+export const GMAIL_FETCH_MAX_RESULTS = 15;

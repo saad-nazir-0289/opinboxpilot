@@ -10,6 +10,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { google } from 'googleapis';
+import { GMAIL_FETCH_MAX_RESULTS, MAX_ANALYSIS_EMAILS } from './src/lib/appConstants.js';
 import { autoSplitEmails } from './src/lib/emailParser.js';
 import Student from './src/models/Student.js';
 
@@ -216,10 +217,10 @@ app.get('/api/gmail/fetch', authenticateToken, async (req, res) => {
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-    // Fetch recent ~15 messages
+    // Fetch recent inbox messages
     const listRes = await gmail.users.messages.list({
       userId: 'me',
-      maxResults: 15,
+      maxResults: GMAIL_FETCH_MAX_RESULTS,
       // Optional: filtering out some generic noise
       q: 'newer_than:30d'
     });
@@ -383,9 +384,9 @@ app.post('/api/analyze', async (req, res) => {
 
     // Limiting overflow
     let limited = false;
-    if (emails.length > 100) {
+    if (emails.length > MAX_ANALYSIS_EMAILS) {
       limited = true;
-      emails = emails.slice(0, 100);
+      emails = emails.slice(0, MAX_ANALYSIS_EMAILS);
     }
 
     const emailBlock = emails

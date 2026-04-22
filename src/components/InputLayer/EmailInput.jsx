@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../../store/appStore'
+import { MAX_ANALYSIS_EMAILS } from '../../lib/appConstants'
 import { getEmailCount } from '../../lib/emailParser'
 
 const PLACEHOLDER = `From: HEC Scholarships <scholarships@hec.gov.pk>
@@ -92,7 +93,7 @@ export default function EmailInput() {
             color: emailCount > 0 ? 'var(--teal)' : 'var(--text3)',
             fontWeight: 500,
           }}>
-            {emailCount} / 100 emails
+            {emailCount} / {MAX_ANALYSIS_EMAILS} emails
           </span>
         </div>
       </div>

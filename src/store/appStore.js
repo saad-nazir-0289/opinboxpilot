@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { MAX_ANALYSIS_EMAILS } from '../lib/appConstants'
 import { extractOpportunities } from '../lib/aiApi'
 import { buildApiUrl } from '../lib/apiConfig'
 import { scoreAndRank } from '../lib/scorer'
@@ -170,7 +171,7 @@ export const useAppStore = create((set, get) => ({
 
       if (limitedDemo) {
         // Show an alert explicitly mapping to the edge cases
-        alert("Processing first 100 emails. The rest have been truncated to prevent overflow/API issues.")
+        alert(`Processing first ${MAX_ANALYSIS_EMAILS} emails. The rest have been truncated to prevent overflow/API issues.`)
       }
 
       const scored = scoreAndRank(raw, studentProfile)

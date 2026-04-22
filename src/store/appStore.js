@@ -19,6 +19,10 @@ const defaultProfile = {
   nationality: '',
 }
 
+function isAuthFailureStatus(status) {
+  return status === 401 || status === 403
+}
+
 export const useAppStore = create((set, get) => ({
   // Auth state
   token: localStorage.getItem('token') || null,
@@ -68,6 +72,9 @@ export const useAppStore = create((set, get) => ({
         const profileData = data.profile || {};
         if (!profileData.preferredTypes) profileData.preferredTypes = [];
         set({ studentProfile: { ...defaultProfile, ...profileData }, isGoogleUser: data.isGoogleUser || false });
+      } else if (isAuthFailureStatus(res.status)) {
+        get().logout();
+        set({ error: 'Your session expired. Please sign in again.' })
       }
     } catch (err) {
       console.error("Failed to fetch profile", err);
@@ -93,6 +100,10 @@ export const useAppStore = create((set, get) => ({
            set({ isProcessing: false });
         }
         return true;
+      } else if (isAuthFailureStatus(res.status)) {
+        get().logout();
+        set({ error: data.error || 'Your session expired. Please sign in again.', isProcessing: false });
+        return false;
       } else {
         set({ error: data.error || 'Failed to fetch Gmail data', isProcessing: false });
         return false;
@@ -121,6 +132,9 @@ export const useAppStore = create((set, get) => ({
         return true;
       } else {
         const data = await res.json();
+        if (isAuthFailureStatus(res.status)) {
+          get().logout();
+        }
         set({ error: data.error || 'Failed to save profile', isProcessing: false });
         return false;
       }

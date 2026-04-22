@@ -12,6 +12,7 @@ import bcrypt from 'bcrypt';
 import { google } from 'googleapis';
 import { GMAIL_FETCH_MAX_RESULTS, MAX_ANALYSIS_EMAILS } from './src/lib/appConstants.js';
 import { autoSplitEmails } from './src/lib/emailParser.js';
+import { validateAnalyzePayload, validateProfileUpdatePayload } from './src/lib/requestValidators.js';
 import { getServerConfig, validateServerConfig } from './src/lib/serverConfig.js';
 import { serializeStudentForClient } from './src/lib/studentSerializer.js';
 import Student from './src/models/Student.js';
@@ -204,6 +205,9 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 
 app.put('/api/profile', authenticateToken, async (req, res) => {
   try {
+    const validationError = validateProfileUpdatePayload(req.body);
+    if (validationError) return res.status(400).json({ error: validationError });
+
     const updates = { ...req.body };
     delete updates.password;
     delete updates.googleId;
@@ -387,6 +391,9 @@ app.get('/', (req, res) => {
 
 app.post('/api/analyze', async (req, res) => {
   try {
+    const validationError = validateAnalyzePayload(req.body);
+    if (validationError) return res.status(400).json({ error: validationError });
+
     const { rawEmails, profile, useSampleData } = req.body;
 
     const OPENAI_API_KEY = config.openAiApiKey;

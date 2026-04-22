@@ -143,6 +143,18 @@ http://localhost:5173
 - The frontend currently targets `http://localhost:5000` for backend requests
 - The ElevenLabs assistant is embedded client-side and configured through its hosted agent ID
 
+## Additional Docs
+
+- `ARCHITECTURE.md` - presentation-friendly system overview
+- `TROUBLESHOOTING.md` - startup and integration troubleshooting
+- `docs/GMAIL_OAUTH_SETUP.md` - Google OAuth and Gmail setup
+- `docs/OPENAI_SETUP.md` - OpenAI key setup and verification
+- `docs/MONGODB_SETUP.md` - MongoDB Atlas setup
+- `docs/DEPLOY_RENDER_RAILWAY.md` - backend/static deployment steps
+- `docs/DEPLOY_VERCEL.md` - Vercel frontend deployment guide
+- `CONTRIBUTING.md` - contribution workflow and commit style
+- `RELEASE_CHECKLIST.md` - pre-release verification checklist
+
 ## Future Improvements
 
 - Move frontend API URLs to environment variables

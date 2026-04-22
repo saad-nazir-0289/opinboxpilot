@@ -89,6 +89,8 @@ PORT=5000
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
+If you want to configure frontend-only variables separately for Vite, copy `.env.frontend.example` to `.env.local` and adjust `VITE_API_BASE_URL` there.
+
 ## How To Run Locally
 
 1. Install dependencies:

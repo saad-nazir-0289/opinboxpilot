@@ -33,6 +33,7 @@ export default function Dashboard() {
         return;
       }
       setRawEmails(normalized);
+      setStatusMessage(`Loaded ${getEmailCount(normalized)} email${getEmailCount(normalized) === 1 ? '' : 's'} from the uploaded PDF.`);
     } catch (err) {
       setUploadError(err?.message || 'Failed to parse PDF. Try another file.');
     } finally {

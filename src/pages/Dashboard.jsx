@@ -84,6 +84,7 @@ export default function Dashboard() {
           <div className="dashboard-main panel-animate" style={{ maxWidth: '900px', margin: '0 auto' }}>
             <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(26px, 4vw, 38px)', color: 'var(--text)', marginBottom: '16px', letterSpacing: '-0.02em' }}>Opportunity Intelligence Workspace</h1>
             <p style={{ color: 'var(--text2)', marginBottom: '32px', lineHeight: 1.6 }}>Paste emails or upload a PDF, then let AI extract actionable opportunities mapped to your profile.</p>
+            <p style={{ color: 'var(--text3)', marginTop: '-16px', marginBottom: '24px', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>Tip: use sample data for a quick tour, or add your own emails for real ranking.</p>
 
             <EmailInput />
 
@@ -107,7 +108,7 @@ export default function Dashboard() {
                   {isProcessing ? 'Fetching...' : 'Auto-Fetch from Gmail'}
                 </button>
               )}
-              <button className="btn btn-secondary" onClick={() => analyse(true)} style={{ padding: '12px 20px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)' }}>Use Sample Data</button>
+               <button className="btn btn-secondary" onClick={() => analyse(true)} style={{ padding: '12px 20px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)' }}>Try Sample Analysis</button>
               <button
                 className="btn btn-secondary"
                 type="button"

@@ -160,7 +160,7 @@ export default function ResultsDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {opportunities.length === 0 ? (
               <div style={{ padding: '20px', textAlign: 'center', background: 'var(--bg2)', borderRadius: 'var(--radius)', color: 'var(--text2)' }}>
-                No opportunities found — try different emails.
+                No strong opportunities were detected in this batch. Try adding more complete emails, importing Gmail messages, or using sample data to preview the experience.
               </div>
             ) : (
               visibleOpportunities.map((opp, i) => (

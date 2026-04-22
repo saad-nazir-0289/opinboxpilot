@@ -3,10 +3,12 @@
  * Connects securely to the Express backend
  */
 
+import { buildApiUrl } from './apiConfig'
+
 export async function extractOpportunities(rawEmails, profile, apiKey, useSampleData = false) {
   // We ping our securely built backend to prevent keys being leaked in frontend
   try {
-    const response = await fetch('http://localhost:5000/api/analyze', {
+    const response = await fetch(buildApiUrl('/api/analyze'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

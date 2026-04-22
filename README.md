@@ -86,6 +86,7 @@ GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback
 JWT_SECRET=your_jwt_signing_secret
 FRONTEND_URL=http://localhost:5173
 PORT=5000
+VITE_API_BASE_URL=http://localhost:5000
 ```
 
 ## How To Run Locally

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { extractOpportunities } from '../lib/aiApi'
+import { buildApiUrl } from '../lib/apiConfig'
 import { scoreAndRank } from '../lib/scorer'
 
 const defaultProfile = {
@@ -56,7 +57,7 @@ export const useAppStore = create((set, get) => ({
     const token = get().token;
     if (!token) return;
     try {
-      const res = await fetch('http://localhost:5000/api/profile', {
+      const res = await fetch(buildApiUrl('/api/profile'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -77,7 +78,7 @@ export const useAppStore = create((set, get) => ({
     if (!token) return false;
     try {
       set({ isProcessing: true, error: null });
-      const res = await fetch('http://localhost:5000/api/gmail/fetch', {
+      const res = await fetch(buildApiUrl('/api/gmail/fetch'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -106,7 +107,7 @@ export const useAppStore = create((set, get) => ({
     if (!token) return false;
     try {
       set({ isProcessing: true, error: null });
-      const res = await fetch('http://localhost:5000/api/profile', {
+      const res = await fetch(buildApiUrl('/api/profile'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -13,6 +13,7 @@ import { google } from 'googleapis';
 import { GMAIL_FETCH_MAX_RESULTS, MAX_ANALYSIS_EMAILS } from './src/lib/appConstants.js';
 import { autoSplitEmails } from './src/lib/emailParser.js';
 import { getServerConfig, validateServerConfig } from './src/lib/serverConfig.js';
+import { serializeStudentForClient } from './src/lib/studentSerializer.js';
 import Student from './src/models/Student.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -134,7 +135,7 @@ app.post('/api/auth/register', async (req, res) => {
     await newStudent.save();
 
     const token = generateToken(newStudent);
-    res.json({ token, student: newStudent });
+    res.json({ token, student: serializeStudentForClient(newStudent) });
   } catch (error) {
     res.status(500).json({ error: "Registration failed" });
   }
@@ -150,7 +151,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!match) return res.status(400).json({ error: "Invalid credentials" });
 
     const token = generateToken(student);
-    res.json({ token, student });
+    res.json({ token, student: serializeStudentForClient(student) });
   } catch (error) {
     res.status(500).json({ error: "Login failed" });
   }
@@ -178,13 +179,13 @@ app.get('/auth/google/callback',
 
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
-    const student = await Student.findById(req.user.id).select('-password');
+    const student = await Student.findById(req.user.id);
     if (!student) return res.status(404).json({ error: "Student not found" });
 
     // Pass indicator if user is a Google user and has token
     const isGoogleUser = !!student.googleAccessToken;
 
-    res.json({ profile: student, isGoogleUser });
+    res.json({ profile: serializeStudentForClient(student), isGoogleUser });
   } catch (error) {
     res.status(500).json({ error: "Could not fetch profile" });
   }
@@ -203,8 +204,8 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
       req.user.id,
       { $set: updates },
       { new: true }
-    ).select('-password');
-    res.json({ profile: student });
+    );
+    res.json({ profile: serializeStudentForClient(student) });
   } catch (error) {
     res.status(500).json({ error: "Could not update profile" });
   }

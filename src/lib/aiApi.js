@@ -4,6 +4,7 @@
  */
 
 import { buildApiUrl } from './apiConfig'
+import { getApiErrorMessage } from './apiErrors'
 
 export async function extractOpportunities(rawEmails, profile, apiKey, useSampleData = false) {
   // We ping our securely built backend to prevent keys being leaked in frontend
@@ -21,8 +22,8 @@ export async function extractOpportunities(rawEmails, profile, apiKey, useSample
     });
 
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || 'Backend analysis failed or is unreachable.');
+      const message = await getApiErrorMessage(response, 'Backend analysis failed or is unreachable.');
+      throw new Error(message);
     }
 
     const data = await response.json();

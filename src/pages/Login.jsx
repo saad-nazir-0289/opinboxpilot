@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { buildApiUrl } from '../lib/apiConfig';
+import { getApiErrorMessage } from '../lib/apiErrors';
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -37,13 +38,13 @@ export default function Login() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
       if (res.ok) {
+        const data = await res.json();
         setToken(data.token);
         await fetchProfile();
         navigate('/profile');
       } else {
-        setErrorText(data.error || 'Authentication failed');
+        setErrorText(await getApiErrorMessage(res, 'Authentication failed'));
       }
     } catch (err) {
       setErrorText('Network error');

@@ -106,11 +106,22 @@ app.use(passport.initialize());
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Authorization header missing' });
+  }
+
+  const [scheme, token] = authHeader.split(' ');
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ error: 'Authorization header must use Bearer token format' });
+  }
 
   jwt.verify(token, config.jwtSecret, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Forbidden' });
+    if (err?.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+    }
+    if (err) {
+      return res.status(403).json({ error: 'Invalid authentication token' });
+    }
     req.user = user;
     next();
   });

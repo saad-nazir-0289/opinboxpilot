@@ -41,6 +41,7 @@ export const useAppStore = create((set, get) => ({
   rejected: [],
   isProcessing: false,
   error: null,
+  statusMessage: null,
   usage: null,
 
   // Auth Actions
@@ -55,7 +56,7 @@ export const useAppStore = create((set, get) => ({
   setUser: (user) => set({ user }),
   logout: () => {
     localStorage.removeItem('token');
-    set({ token: null, user: null, studentProfile: defaultProfile, isGoogleUser: false });
+    set({ token: null, user: null, studentProfile: defaultProfile, isGoogleUser: false, statusMessage: null });
   },
 
   fetchProfile: async () => {
@@ -95,21 +96,21 @@ export const useAppStore = create((set, get) => ({
       if (res.ok) {
         if (data.text) {
            const existing = rawEmails.trim() ? rawEmails + '\n\n' : '';
-           set({ rawEmails: existing + data.text, isProcessing: false });
+           set({ rawEmails: existing + data.text, isProcessing: false, statusMessage: 'Imported recent emails from Gmail.' });
         } else {
-           set({ isProcessing: false });
+           set({ isProcessing: false, statusMessage: 'No recent Gmail messages matched the current filter.' });
         }
         return true;
       } else if (isAuthFailureStatus(res.status)) {
         get().logout();
-        set({ error: data.error || 'Your session expired. Please sign in again.', isProcessing: false });
+        set({ error: data.error || 'Your session expired. Please sign in again.', isProcessing: false, statusMessage: null });
         return false;
       } else {
-        set({ error: data.error || 'Failed to fetch Gmail data', isProcessing: false });
+        set({ error: data.error || 'Failed to fetch Gmail data', isProcessing: false, statusMessage: null });
         return false;
       }
     } catch (err) {
-      set({ error: 'Network error fetching Gmail', isProcessing: false });
+      set({ error: 'Network error fetching Gmail', isProcessing: false, statusMessage: null });
       return false;
     }
   },
@@ -157,6 +158,7 @@ export const useAppStore = create((set, get) => ({
       return { studentProfile: { ...s.studentProfile, preferredTypes: next } }
     }),
   setError: (error) => set({ error }),
+  setStatusMessage: (statusMessage) => set({ statusMessage }),
   goToStep: (step) => set({ currentStep: step }),
   reset: () =>
     set({
@@ -166,6 +168,7 @@ export const useAppStore = create((set, get) => ({
       opportunities: [],
       rejected: [],
       error: null,
+      statusMessage: null,
       usage: null,
     }),
 

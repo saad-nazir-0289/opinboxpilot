@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { extractTextFromPdf } from '../lib/pdfEmailExtractor';
 
 export default function Dashboard() {
-  const { rawEmails, setRawEmails, studentProfile: p, isProcessing, currentStep, analyse, reset, error, logout, token, isGoogleUser, fetchGmail } = useAppStore();
+  const { rawEmails, setRawEmails, studentProfile: p, isProcessing, currentStep, analyse, reset, error, logout, isGoogleUser, fetchGmail, statusMessage, setStatusMessage } = useAppStore();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [uploadError, setUploadError] = useState('');
@@ -23,6 +23,7 @@ export default function Dashboard() {
     if (!file) return;
 
     setUploadError('');
+    setStatusMessage(null);
     setIsExtractingPdf(true);
     try {
       const extracted = await extractTextFromPdf(file);
@@ -71,6 +72,9 @@ export default function Dashboard() {
       <div className="dashboard-content" style={{ padding: '0 40px', marginTop: '40px' }}>
         {error && currentStep === 'input' && (
           <div style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)', color: 'var(--text)', fontSize: '13px', marginBottom: '20px' }}>{error}</div>
+        )}
+        {statusMessage && currentStep === 'input' && (
+          <div style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(45,212,191,0.35)', background: 'rgba(45,212,191,0.08)', color: 'var(--text)', fontSize: '13px', marginBottom: '20px' }}>{statusMessage}</div>
         )}
 
         {currentStep === 'results' ? (

@@ -25,6 +25,8 @@ export default function ResultsDashboard() {
   const { opportunities, rejected, studentProfile: p, usage, reset } = useAppStore()
   const [showAll, setShowAll] = useState(false)
 
+  const visibleOpportunities = showAll ? opportunities : opportunities.slice(0, 5)
+
   const urgent     = opportunities.filter((o) => o.days_until_deadline !== null && o.days_until_deadline >= 0 && o.days_until_deadline <= 7).length
   const withGaps   = opportunities.filter((o) => o.warnings.length > 0).length
   const top        = opportunities[0]
@@ -161,8 +163,8 @@ export default function ResultsDashboard() {
                 No opportunities found — try different emails.
               </div>
             ) : (
-              (showAll ? opportunities : opportunities.slice(0, 5)).map((opp, i) => (
-                <PriorityCard key={opp.id || Math.random().toString()} opp={opp} rank={i + 1} />
+              visibleOpportunities.map((opp, i) => (
+                <PriorityCard key={opp.id || `${opp.title}-${opp.deadline || 'unknown'}-${i}`} opp={opp} rank={i + 1} />
               ))
             )}
             

@@ -12,19 +12,34 @@ import bcrypt from 'bcrypt';
 import { google } from 'googleapis';
 import { GMAIL_FETCH_MAX_RESULTS, MAX_ANALYSIS_EMAILS } from './src/lib/appConstants.js';
 import { autoSplitEmails } from './src/lib/emailParser.js';
+import { getServerConfig, validateServerConfig } from './src/lib/serverConfig.js';
 import Student from './src/models/Student.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 
+const config = getServerConfig();
+const configStatus = validateServerConfig(config);
+
+for (const warning of configStatus.warnings) {
+  console.warn(`Startup warning: ${warning}`);
+}
+
+if (configStatus.errors.length > 0) {
+  for (const error of configStatus.errors) {
+    console.error(`Startup error: ${error}`);
+  }
+  process.exit(1);
+}
+
 // Setup Mongoose
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(config.mongoUri)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
 
 const app = express();
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: config.frontendUrl,
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -41,9 +56,9 @@ function isConfiguredOpenAIKey(value) {
 
 // Passport Google Strategy
 passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
+  clientID: config.googleClientId,
+  clientSecret: config.googleClientSecret,
+  callbackURL: config.googleCallbackUrl
 },
   async (accessToken, refreshToken, profile, done) => {
     try {
@@ -93,7 +108,7 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, config.jwtSecret, (err, user) => {
     if (err) return res.status(403).json({ error: 'Forbidden' });
     req.user = user;
     next();
@@ -101,7 +116,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 function generateToken(student) {
-  return jwt.sign({ id: student._id, email: student.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ id: student._id, email: student.email }, config.jwtSecret, { expiresIn: '7d' });
 }
 
 // ── Auth Routes ──
@@ -155,8 +170,7 @@ app.get('/auth/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: '/login' }),
   (req, res) => {
     const token = generateToken(req.user);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    res.redirect(`${frontendUrl}/login?token=${token}`);
+    res.redirect(`${config.frontendUrl}/login?token=${token}`);
   }
 );
 
@@ -204,8 +218,8 @@ app.get('/api/gmail/fetch', authenticateToken, async (req, res) => {
     }
 
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
+      config.googleClientId,
+      config.googleClientSecret
     );
 
     oauth2Client.setCredentials({
@@ -350,7 +364,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     service: 'opinbox-pilot-backend',
     timestamp: new Date().toISOString(),
-    openaiConfigured: isConfiguredOpenAIKey(process.env.OPENAI_API_KEY?.trim()),
+    openaiConfigured: isConfiguredOpenAIKey(config.openAiApiKey),
     mongoConnectionState: mongoose.connection.readyState,
   });
 });
@@ -363,7 +377,7 @@ app.post('/api/analyze', async (req, res) => {
   try {
     const { rawEmails, profile, useSampleData } = req.body;
 
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
+    const OPENAI_API_KEY = config.openAiApiKey;
 
     if (useSampleData) {
       return res.json({ ...generateDemoData(), limitedDemo: false });
@@ -468,8 +482,7 @@ Analyze all ${emails.length} emails and return the strict JSON.`;
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  const keyOk = isConfiguredOpenAIKey(process.env.OPENAI_API_KEY?.trim());
-  console.log(`Backend on http://localhost:${PORT} (OPENAI_API_KEY: ${keyOk ? 'ok' : 'MISSING — real analysis will fail until set'})`);
+app.listen(config.port, () => {
+  const keyOk = isConfiguredOpenAIKey(config.openAiApiKey);
+  console.log(`Backend on http://localhost:${config.port} (OPENAI_API_KEY: ${keyOk ? 'ok' : 'MISSING — real analysis will fail until set'})`);
 });

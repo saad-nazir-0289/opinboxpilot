@@ -86,10 +86,14 @@ export default function StudentProfile() {
   }
 
   const completionFields = [
-    p.degree, p.program, p.semester, p.cgpa, p.skills,
-    p.studentProfile?.preferredTypes?.length > 0 || p.preferredTypes?.length > 0 ? 'x' : '',
+    p.degree,
+    p.program,
+    p.semester,
+    p.cgpa,
+    p.skills,
+    p.preferredTypes.length > 0 ? 'x' : '',
   ]
-  const filledCount = [p.degree, p.program, p.semester, p.cgpa, p.skills, p.preferredTypes.length > 0 ? 'x' : ''].filter(Boolean).length
+  const filledCount = completionFields.filter(Boolean).length
   const completion = Math.round((filledCount / 6) * 100)
 
   return (
@@ -220,6 +224,7 @@ export default function StudentProfile() {
             return (
               <button
                 key={id}
+                type="button"
                 onClick={() => togglePreferredType(id)}
                 style={{
                   display: 'flex',

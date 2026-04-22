@@ -40,10 +40,10 @@ function isConfiguredOpenAIKey(value) {
 
 // Passport Google Strategy
 passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
-  },
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
+},
   async (accessToken, refreshToken, profile, done) => {
     try {
       let student = await Student.findOne({ googleId: profile.id });
@@ -61,7 +61,7 @@ passport.use(new GoogleStrategy({
             return done(null, student);
           }
         }
-        
+
         // Create new user
         student = new Student({
           googleId: profile.id,
@@ -72,10 +72,10 @@ passport.use(new GoogleStrategy({
         });
         await student.save();
       } else {
-         // Update tokens for existing user
-         student.googleAccessToken = accessToken;
-         if (refreshToken) student.googleRefreshToken = refreshToken;
-         await student.save();
+        // Update tokens for existing user
+        student.googleAccessToken = accessToken;
+        if (refreshToken) student.googleRefreshToken = refreshToken;
+        await student.save();
       }
       return done(null, student);
     } catch (err) {
@@ -142,7 +142,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 // Google OAuth Redirect
 app.get('/auth/google',
-  passport.authenticate('google', { 
+  passport.authenticate('google', {
     scope: ['profile', 'email', 'https://www.googleapis.com/auth/gmail.readonly'],
     accessType: 'offline',
     prompt: 'consent'
@@ -165,10 +165,10 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
     const student = await Student.findById(req.user.id).select('-password');
     if (!student) return res.status(404).json({ error: "Student not found" });
-    
+
     // Pass indicator if user is a Google user and has token
     const isGoogleUser = !!student.googleAccessToken;
-    
+
     res.json({ profile: student, isGoogleUser });
   } catch (error) {
     res.status(500).json({ error: "Could not fetch profile" });
@@ -211,17 +211,17 @@ app.get('/api/gmail/fetch', authenticateToken, async (req, res) => {
       access_token: student.googleAccessToken,
       refresh_token: student.googleRefreshToken
     });
-    
+
     // In case refresh is needed, googleapis does it automatically if refresh_token is provided.
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-    
+
     // Fetch recent ~15 messages
     const listRes = await gmail.users.messages.list({
       userId: 'me',
       maxResults: 15,
       // Optional: filtering out some generic noise
-      q: 'newer_than:30d' 
+      q: 'newer_than:30d'
     });
 
     const messages = listRes.data.messages || [];
@@ -238,7 +238,7 @@ app.get('/api/gmail/fetch', authenticateToken, async (req, res) => {
         const subject = headers.find(h => h.name.toLowerCase() === 'subject')?.value || 'No Subject';
         const from = headers.find(h => h.name.toLowerCase() === 'from')?.value || 'Unknown';
         const date = headers.find(h => h.name.toLowerCase() === 'date')?.value || '';
-        
+
         let snippet = msgData.data.snippet || '';
         // Unescape some html entities from snippet
         snippet = snippet.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
@@ -373,9 +373,9 @@ app.post('/api/analyze', async (req, res) => {
 
     // Limiting overflow
     let limited = false;
-    if (emails.length > 10) {
+    if (emails.length > 100) {
       limited = true;
-      emails = emails.slice(0, 10);
+      emails = emails.slice(0, 100);
     }
 
     const emailBlock = emails

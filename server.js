@@ -344,6 +344,16 @@ function generateDemoData() {
   };
 }
 
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'opinbox-pilot-backend',
+    timestamp: new Date().toISOString(),
+    openaiConfigured: isConfiguredOpenAIKey(process.env.OPENAI_API_KEY?.trim()),
+    mongoConnectionState: mongoose.connection.readyState,
+  });
+});
+
 app.get('/', (req, res) => {
   res.send('Backend server is live and running. Use the frontend interface to perform analysis.');
 });

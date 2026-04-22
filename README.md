@@ -128,6 +128,7 @@ http://localhost:5173
 - `POST /api/auth/register` - create a local account
 - `POST /api/auth/login` - sign in with email/password
 - `GET /auth/google` - start Google OAuth
+- `GET /api/health` - check backend health and configuration status
 - `GET /api/profile` - fetch current student profile
 - `PUT /api/profile` - update student profile
 - `GET /api/gmail/fetch` - fetch recent Gmail content for Google users

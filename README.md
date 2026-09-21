@@ -157,7 +157,6 @@ http://localhost:5173
 
 ## Future Improvements
 
-- Move frontend API URLs to environment variables
 - Add test coverage for backend routes and scoring logic
 - Add refresh-token/session hardening for production deployments
 - Add deployment-ready Docker and CI configuration
